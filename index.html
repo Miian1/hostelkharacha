@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hostel Expense Manager</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Removed axios CDN - using fetch API instead -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🏠 Hostel Finance Manager</h1>
             <p class="subtitle">Track your income and expenses easily</p>
-            <p class="url-info">Using: <code id="apiUrl"></code></p>
+            <div class="connection-status">
+                <span id="connectionIcon">🟡</span>
+                <span id="connectionText">Testing connection...</span>
+            </div>
         </header>
 
         <div class="dashboard">
@@ -61,31 +64,30 @@
                     <button class="filter-btn" data-filter="expense">Expense</button>
                 </div>
                 <div id="transactionList" class="transaction-list">
-                    <p class="empty-message">No transactions yet. Add some!</p>
+                    <p class="empty-message">Loading transactions...</p>
                 </div>
             </div>
         </div>
 
-        <div class="instructions">
-            <h3>📝 How to Use:</h3>
-            <ol>
-                <li>Enter income/expense details in the forms</li>
-                <li>Click "Add Income" or "Add Expense"</li>
-                <li>Transactions are saved to your Google Sheet</li>
-                <li>Use filters to view specific transactions</li>
-                <li>Refresh to get latest data</li>
-            </ol>
+        <div class="sync-section">
+            <h3>🔄 Data Sync</h3>
+            <div class="sync-controls">
+                <button id="refreshBtn" class="btn sync-btn">🔄 Refresh Data</button>
+                <button id="syncLocalBtn" class="btn sync-btn">📱 Sync Local Data</button>
+                <button id="clearLocalBtn" class="btn sync-btn clear">🗑️ Clear Local</button>
+            </div>
+            <p id="localStatus" class="status">Local storage: 0 pending transactions</p>
         </div>
 
         <footer>
-            <p>Data stored in your Google Sheet | 
-                <button id="refreshBtn" class="refresh-btn">🔄 Refresh Data</button> |
-                <button id="testBtn" class="test-btn">🔧 Test Connection</button>
-            </p>
-            <p class="status" id="connectionStatus">🟡 Loading...</p>
+            <p>Hostel Finance Manager v1.0 | Using Google Sheets API</p>
+            <p class="api-info">API Endpoint: <code id="apiUrl"></code></p>
         </footer>
     </div>
 
+    <!-- Hidden iframe for JSONP requests -->
+    <iframe id="jsonpFrame" style="display: none;"></iframe>
+    
     <script src="script.js"></script>
 </body>
 </html>
