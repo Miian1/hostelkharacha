@@ -1,7 +1,7 @@
 // Configuration
 const CONFIG = {
     // Your Apps Script Web App URL (with /exec)
-    API_URL: 'https://script.google.com/macros/s/AKfycbyS6b9m-XQge5W97m4VQF4hQxbnN5rqhDIlVrevuLT8GemO_YglzMM8QrfpPxyc4nBZMA/exec',
+    API_URL: 'https://script.google.com/macros/s/AKfycbyS6b9m-XQge5W97m4VQF4hQxbnN5rqhDIlVrevuLT8GemO_YglzMM8QrfpPxyc4nBZMA/exec',//https://script.google.com/macros/s/AKfycbyS6b9m-XQge5W97m4VQF4hQxbnN5rqhDIlVrevuLT8GemO_YglzMM8QrfpPxyc4nBZMA/exec
     
     // Your Google Sheet ID
     SHEET_ID: '1SalTDywX5hBrD14vJxvQ4Uvb0zexb1jJFRZ6OJQ06s4',
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up event listeners
     setupEventListeners();
     
-    // Try to load from Google Sheets
+    // Try to load from Google Sheets using JSONP
     loadFromGoogleSheets();
     
     // Initial UI update
@@ -160,7 +160,7 @@ function addTransaction(type) {
     // Show success message
     showNotification(`${type === 'income' ? 'Income' : 'Expense'} added successfully!`, 'success');
     
-    // Try to sync immediately
+    // Try to sync immediately (using iframe POST method)
     setTimeout(() => {
         syncSingleTransaction(transaction);
     }, 1000);
@@ -170,8 +170,17 @@ function addTransaction(type) {
 function loadFromGoogleSheets() {
     updateConnectionStatus('🟡', 'Connecting to Google Sheets...');
     
+    // First try to get summary
+    loadSummaryJSONP();
+    
+    // Then load transactions
+    loadTransactionsJSONP();
+}
+
+// Load transactions using JSONP
+function loadTransactionsJSONP() {
     // Create unique callback name
-    const callbackName = 'jsonpCallback_' + Date.now();
+    const callbackName = 'jsonpTransactions_' + Date.now();
     
     // Create script tag for JSONP
     const script = document.createElement('script');
@@ -179,24 +188,27 @@ function loadFromGoogleSheets() {
     
     // Define the callback function
     window[callbackName] = function(data) {
-        console.log('📥 Data received from Google Sheets:', data);
+        console.log('📥 Transactions received:', data);
         
         if (data && data.transactions) {
             // Process and merge with local data
             processRemoteTransactions(data.transactions);
             updateConnectionStatus('✅', 'Connected to Google Sheets');
         } else {
-            updateConnectionStatus('⚠️', 'No data received');
+            console.warn('No transactions in response');
+            updateConnectionStatus('⚠️', 'No data received - using local');
         }
         
         // Clean up
         delete window[callbackName];
-        document.head.removeChild(script);
+        if (script.parentNode) {
+            document.head.removeChild(script);
+        }
     };
     
     // Add error handling
     script.onerror = function() {
-        console.error('❌ Failed to load from Google Sheets');
+        console.error('❌ Failed to load transactions via JSONP');
         updateConnectionStatus('❌', 'Connection failed - using local data');
         
         // Clean up
@@ -208,28 +220,33 @@ function loadFromGoogleSheets() {
     
     // Add to page to trigger request
     document.head.appendChild(script);
-    
-    // Also load summary
-    loadSummaryJSONP();
 }
 
 // Load summary using JSONP
 function loadSummaryJSONP() {
-    const callbackName = 'summaryCallback_' + Date.now();
+    const callbackName = 'jsonpSummary_' + Date.now();
     
     const script = document.createElement('script');
     script.src = `${CONFIG.API_URL}?action=getSummary&callback=${callbackName}`;
     
     window[callbackName] = function(data) {
+        console.log('📊 Summary received:', data);
+        
         if (data) {
             updateSummaryDisplay(data);
+            showNotification('Connected to Google Sheets!', 'success');
+        } else {
+            console.warn('No summary data');
         }
         
         delete window[callbackName];
-        document.head.removeChild(script);
+        if (script.parentNode) {
+            document.head.removeChild(script);
+        }
     };
     
     script.onerror = function() {
+        console.error('Failed to load summary via JSONP');
         delete window[callbackName];
         if (script.parentNode) {
             document.head.removeChild(script);
@@ -272,7 +289,14 @@ function processRemoteTransactions(remoteTransactions) {
     // Update UI
     updateDashboard();
     displayTransactions();
-    showNotification(`Loaded ${processedTransactions.length} transactions from Google Sheets`, 'success');
+    
+    // Update notification
+    const pendingCount = pendingTransactions.filter(t => t.status === 'pending').length;
+    if (pendingCount > 0) {
+        showNotification(`Loaded ${processedTransactions.length} from Google Sheets. ${pendingCount} local transactions pending sync.`, 'info');
+    } else {
+        showNotification(`Loaded ${processedTransactions.length} transactions from Google Sheets`, 'success');
+    }
 }
 
 // Update summary display
@@ -297,52 +321,81 @@ function updateSummaryDisplay(summaryData) {
     }
 }
 
-// Sync a single transaction to Google Sheets
+// Sync a single transaction to Google Sheets using iframe POST
 function syncSingleTransaction(transaction) {
     if (transaction.status === 'synced') return;
     
     console.log('🔄 Syncing transaction:', transaction.id);
     
-    // Create form data
-    const formData = new URLSearchParams();
-    formData.append('type', transaction.type);
-    formData.append('name', transaction.name);
-    formData.append('amount', transaction.amount);
-    formData.append('description', transaction.description);
+    // Create an iframe for the POST request
+    const iframeId = 'postFrame_' + transaction.id;
+    let iframe = document.getElementById(iframeId);
     
-    // Use iframe technique for POST
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.name = 'postFrame_' + transaction.id;
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = iframeId;
+        iframe.name = iframeId;
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+    }
     
-    const form = document.createElement('form');
-    form.target = iframe.name;
-    form.action = `${CONFIG.API_URL}?action=addTransaction`;
-    form.method = 'POST';
+    // Create a form
+    const formId = 'form_' + transaction.id;
+    let form = document.getElementById(formId);
     
-    // Add form data
-    formData.forEach((value, key) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
-    });
+    if (!form) {
+        form = document.createElement('form');
+        form.id = formId;
+        form.target = iframeId;
+        form.action = CONFIG.API_URL;
+        form.method = 'POST';
+        
+        // Add action parameter
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'addTransaction';
+        form.appendChild(actionInput);
+        
+        // Add transaction data
+        const fields = [
+            { name: 'type', value: transaction.type },
+            { name: 'name', value: transaction.name },
+            { name: 'amount', value: transaction.amount },
+            { name: 'description', value: transaction.description }
+        ];
+        
+        fields.forEach(field => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = field.name;
+            input.value = field.value;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+    }
     
-    // Add to page and submit
-    document.body.appendChild(iframe);
-    document.body.appendChild(form);
+    // Submit the form
     form.submit();
     
-    // Clean up after submission
+    // Update transaction status (assuming success)
     setTimeout(() => {
-        document.body.removeChild(iframe);
-        document.body.removeChild(form);
-        
-        // Update transaction status (assuming success)
         transaction.status = 'synced';
         saveLocalData();
+        savePendingTransactions();
         updateLocalStatus();
+        
+        // Update UI to show synced status
+        displayTransactions();
+        
+        showNotification('Transaction synced to Google Sheets!', 'success');
+        
+        // Clean up after 5 seconds
+        setTimeout(() => {
+            if (iframe.parentNode) document.body.removeChild(iframe);
+            if (form.parentNode) document.body.removeChild(form);
+        }, 5000);
     }, 3000);
 }
 
