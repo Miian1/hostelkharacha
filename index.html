@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hostel Expense Manager</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Removed axios CDN - using fetch API instead -->
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 Hostel Finance Manager</h1>
+            <p class="subtitle">Track your income and expenses easily</p>
+            <p class="url-info">Using: <code id="apiUrl"></code></p>
+        </header>
+
+        <div class="dashboard">
+            <div class="summary-box">
+                <h3>💰 Total Balance</h3>
+                <p id="totalBalance" class="amount">₹0.00</p>
+            </div>
+            <div class="summary-box income">
+                <h3>📈 Total Income</h3>
+                <p id="totalIncome" class="amount">₹0.00</p>
+            </div>
+            <div class="summary-box expense">
+                <h3>📉 Total Expenses</h3>
+                <p id="totalExpense" class="amount">₹0.00</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="form-section">
+                <div class="form-card">
+                    <h2>➕ Add Income</h2>
+                    <form id="incomeForm">
+                        <input type="text" id="incomeName" placeholder="Income source (e.g., Rent)" required>
+                        <input type="number" id="incomeAmount" placeholder="Amount (₹)" step="0.01" required>
+                        <textarea id="incomeDesc" placeholder="Description (optional)"></textarea>
+                        <button type="submit" class="btn income-btn">Add Income</button>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h2>➖ Add Expense</h2>
+                    <form id="expenseForm">
+                        <input type="text" id="expenseName" placeholder="Item name (e.g., Groceries)" required>
+                        <input type="number" id="expenseAmount" placeholder="Amount (₹)" step="0.01" required>
+                        <textarea id="expenseDesc" placeholder="Description (optional)"></textarea>
+                        <button type="submit" class="btn expense-btn">Add Expense</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="transactions">
+                <h2>📋 Recent Transactions</h2>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="income">Income</button>
+                    <button class="filter-btn" data-filter="expense">Expense</button>
+                </div>
+                <div id="transactionList" class="transaction-list">
+                    <p class="empty-message">No transactions yet. Add some!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📝 How to Use:</h3>
+            <ol>
+                <li>Enter income/expense details in the forms</li>
+                <li>Click "Add Income" or "Add Expense"</li>
+                <li>Transactions are saved to your Google Sheet</li>
+                <li>Use filters to view specific transactions</li>
+                <li>Refresh to get latest data</li>
+            </ol>
+        </div>
+
+        <footer>
+            <p>Data stored in your Google Sheet | 
+                <button id="refreshBtn" class="refresh-btn">🔄 Refresh Data</button> |
+                <button id="testBtn" class="test-btn">🔧 Test Connection</button>
+            </p>
+            <p class="status" id="connectionStatus">🟡 Loading...</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
